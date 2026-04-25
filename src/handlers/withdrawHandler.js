@@ -1,3 +1,4 @@
+const env = require('../config/env');
 const {
   createWithdrawSession,
   listWithdrawOrders
@@ -15,6 +16,11 @@ async function handleRutTienCommand(bot, msg, match) {
     return;
   }
 
+  if (!env.withdrawApproverTelegramId) {
+    await bot.sendMessage(chatId, 'Chưa cấu hình WITHDRAW_APPROVER_TELEGRAM_ID.');
+    return;
+  }
+
   const rawAmount = (match?.[1] || '').trim();
   const amount = rawAmount ? Number(rawAmount.replace(/[,. ]/g, '')) : null;
 
@@ -24,16 +30,31 @@ async function handleRutTienCommand(bot, msg, match) {
   }
 
   try {
-    const { token } = await createWithdrawSession({
+    const { token, approvalCode } = await createWithdrawSession({
       chatId,
       userId,
       telegramUsername: msg.from.username || '',
       amount
     });
     const url = getWithdrawUrl(token);
+    const requester = msg.from.username
+      ? `@${msg.from.username}`
+      : `${msg.from.first_name || ''} ${msg.from.last_name || ''}`.trim() || String(userId);
+
+    await bot.sendMessage(env.withdrawApproverTelegramId, [
+      '<b>Mã xác thực rút tiền</b>',
+      `Mã: <code>${approvalCode}</code>`,
+      `Người yêu cầu: ${escapeHtml(requester)} (<code>${userId}</code>)`,
+      amount ? `Số tiền yêu cầu: <b>${formatNumber(amount)}</b>` : 'Số tiền: người dùng nhập trong form',
+      'Chỉ cung cấp mã này nếu bạn đồng ý cho tạo lệnh rút.'
+    ].join('\n'), {
+      parse_mode: 'HTML'
+    });
+
     const lines = [
       '<b>Form rút tiền</b>',
       amount ? `Số tiền: <b>${formatNumber(amount)}</b>` : 'Bạn có thể nhập số tiền trong form.',
+      'Mã xác thực đã được gửi cho người duyệt. Bạn cần nhập đúng mã đó trong form.',
       'Link có hiệu lực trong 15 phút.'
     ];
 

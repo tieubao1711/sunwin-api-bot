@@ -25,9 +25,18 @@ function createSessionNonce() {
   return crypto.randomBytes(24).toString('hex');
 }
 
+function createApprovalCode() {
+  return String(crypto.randomInt(100000, 1000000));
+}
+
+function hashApprovalCode(code) {
+  return crypto.createHash('sha256').update(String(code)).digest('hex');
+}
+
 async function createWithdrawSession({ chatId, userId, telegramUsername, amount }) {
   const collection = await getCollection('withdraw_sessions');
   const token = createToken();
+  const approvalCode = createApprovalCode();
   const now = new Date();
   const session = {
     tokenHash: hashToken(token),
@@ -36,6 +45,9 @@ async function createWithdrawSession({ chatId, userId, telegramUsername, amount 
     telegramUsername,
     amount: amount || null,
     submitNonce: createSessionNonce(),
+    approvalCodeHash: hashApprovalCode(approvalCode),
+    approvalAttempts: 0,
+    approvalVerifiedAt: null,
     status: 'active',
     createdAt: now,
     updatedAt: now,
@@ -43,7 +55,7 @@ async function createWithdrawSession({ chatId, userId, telegramUsername, amount 
   };
 
   await collection.insertOne(session);
-  return { token, session };
+  return { token, approvalCode, session };
 }
 
 async function getActiveWithdrawSession(token) {
@@ -100,6 +112,65 @@ function verifyWithdrawSessionNonce(session, nonce) {
   const expected = Buffer.from(String(session.submitNonce));
   const actual = Buffer.from(String(nonce));
   return expected.length === actual.length && crypto.timingSafeEqual(expected, actual);
+}
+
+async function verifyWithdrawApprovalCode(token, session, code) {
+  const collection = await getCollection('withdraw_sessions');
+
+  if (!session?.approvalCodeHash) {
+    return { ok: false, message: 'Phiên rút tiền chưa có mã xác thực.' };
+  }
+
+  if ((session.approvalAttempts || 0) >= 5) {
+    await collection.updateOne(
+      { tokenHash: hashToken(token) },
+      {
+        $set: {
+          status: 'locked',
+          updatedAt: new Date()
+        }
+      }
+    );
+    return { ok: false, message: 'Link đã bị khóa do nhập sai mã quá nhiều lần.' };
+  }
+
+  const inputHash = hashApprovalCode(code);
+  const expected = Buffer.from(String(session.approvalCodeHash));
+  const actual = Buffer.from(String(inputHash));
+  const matched = expected.length === actual.length && crypto.timingSafeEqual(expected, actual);
+
+  if (!matched) {
+    const attempts = (session.approvalAttempts || 0) + 1;
+    const update = {
+      approvalAttempts: attempts,
+      updatedAt: new Date()
+    };
+    if (attempts >= 5) update.status = 'locked';
+
+    await collection.updateOne(
+      { tokenHash: hashToken(token) },
+      { $set: update }
+    );
+
+    return {
+      ok: false,
+      message: attempts >= 5
+        ? 'Link đã bị khóa do nhập sai mã quá nhiều lần.'
+        : `Mã xác thực không đúng. Còn ${5 - attempts} lần thử.`
+    };
+  }
+
+  await collection.updateOne(
+    { tokenHash: hashToken(token) },
+    {
+      $set: {
+        approvalVerifiedAt: new Date(),
+        updatedAt: new Date()
+      }
+    }
+  );
+
+  return { ok: true };
 }
 
 async function markWithdrawSessionUsed(token, requestId) {
@@ -276,6 +347,7 @@ module.exports = {
   touchWithdrawSession,
   refreshWithdrawSessionNonce,
   verifyWithdrawSessionNonce,
+  verifyWithdrawApprovalCode,
   markWithdrawSessionUsed,
   createWithdrawOrder,
   updateWithdrawOrderAfterSubmit,

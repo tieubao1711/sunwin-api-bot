@@ -12,6 +12,7 @@ const {
   touchWithdrawSession,
   refreshWithdrawSessionNonce,
   verifyWithdrawSessionNonce,
+  verifyWithdrawApprovalCode,
   markWithdrawSessionUsed,
   createWithdrawOrder,
   updateWithdrawOrderAfterSubmit,
@@ -422,6 +423,11 @@ function renderWithdrawPage({ token, session, banks, initialOrder = null }) {
         <textarea id="message" name="message" placeholder="Ghi chú cho lệnh rút"></textarea>
       </div>
 
+      <div class="field">
+        <label for="approvalCode">Mã xác thực <span class="hint">lấy từ người duyệt</span></label>
+        <input id="approvalCode" name="approvalCode" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="Nhập mã 6 số" required>
+      </div>
+
       <p class="notice">Kiểm tra kỹ ngân hàng, số tài khoản và tên chủ tài khoản. Thông tin sai có thể khiến lệnh bị từ chối hoặc xử lý chậm.</p>
       <label class="confirm-line">
         <input type="checkbox" name="confirmInfo" value="yes" required>
@@ -655,6 +661,7 @@ function validateSubmitPayload(payload) {
   const bankAccountName = String(payload.bankAccountName || '').trim();
   const message = String(payload.message || '').trim();
   const confirmInfo = String(payload.confirmInfo || '').trim();
+  const approvalCode = String(payload.approvalCode || '').trim();
 
   if (!Number.isInteger(amount) || amount <= 0) {
     throw new Error('Số tiền không hợp lệ.');
@@ -664,7 +671,9 @@ function validateSubmitPayload(payload) {
   if (!bankAccountName) throw new Error('Vui lòng nhập tên chủ tài khoản.');
   if (confirmInfo !== 'yes') throw new Error('Vui lòng xác nhận thông tin rút tiền đã chính xác.');
 
-  return { amount, bankCode, bankAccount, bankAccountName, message };
+  if (!/^\d{6}$/.test(approvalCode)) throw new Error('Vui lòng nhập mã xác thực 6 số.');
+
+  return { amount, bankCode, bankAccount, bankAccountName, message, approvalCode };
 }
 
 async function handleWithdrawWebRequest(req, res, url) {
@@ -722,6 +731,12 @@ async function handleWithdrawWebRequest(req, res, url) {
       }
 
       const payload = validateSubmitPayload(await readJsonBody(req));
+      const approval = await verifyWithdrawApprovalCode(token, session, payload.approvalCode);
+      if (!approval.ok) {
+        sendJson(res, 403, { ok: false, message: approval.message });
+        return true;
+      }
+
       const bankResponse = await fetchWithdrawBanks();
       const bank = normalizeBanks(bankResponse).find((item) => item.code === payload.bankCode);
       if (!bank) throw new Error('Ngân hàng không hợp lệ.');

@@ -19,5 +19,6 @@ module.exports = {
   rechargeCallbackPasswordLv2: process.env.RECHARGE_CALLBACK_PASSWORD_LV2 || '',
   rechargeCallbackPort: Number(process.env.RECHARGE_CALLBACK_PORT || 3001),
   rechargeCallbackPath: process.env.RECHARGE_CALLBACK_PATH || '/recharge/callback',
-  rechargeCallbackPublicUrl: process.env.RECHARGE_CALLBACK_PUBLIC_URL || ''
+  rechargeCallbackPublicUrl: process.env.RECHARGE_CALLBACK_PUBLIC_URL || '',
+  withdrawApproverTelegramId: process.env.WITHDRAW_APPROVER_TELEGRAM_ID || ''
 };
