@@ -10,6 +10,8 @@ const {
 const {
   getUsableWithdrawSession,
   touchWithdrawSession,
+  refreshWithdrawSessionNonce,
+  verifyWithdrawSessionNonce,
   markWithdrawSessionUsed,
   createWithdrawOrder,
   updateWithdrawOrderAfterSubmit,
@@ -21,12 +23,21 @@ const {
 } = require('./withdrawStore');
 
 function sendHtml(res, statusCode, html) {
-  res.writeHead(statusCode, { 'Content-Type': 'text/html; charset=utf-8' });
+  res.writeHead(statusCode, {
+    'Content-Type': 'text/html; charset=utf-8',
+    'Referrer-Policy': 'no-referrer',
+    'X-Frame-Options': 'DENY',
+    'X-Content-Type-Options': 'nosniff',
+    'Cache-Control': 'no-store'
+  });
   res.end(html);
 }
 
 function sendJson(res, statusCode, body) {
-  res.writeHead(statusCode, { 'Content-Type': 'application/json; charset=utf-8' });
+  res.writeHead(statusCode, {
+    'Content-Type': 'application/json; charset=utf-8',
+    'Cache-Control': 'no-store'
+  });
   res.end(JSON.stringify(body));
 }
 
@@ -229,6 +240,25 @@ function renderWithdrawPage({ token, session, banks, initialOrder = null }) {
       line-height: 1.5;
     }
 
+    .confirm-line {
+      display: grid;
+      grid-template-columns: 18px 1fr;
+      align-items: start;
+      gap: 10px;
+      margin-top: 14px;
+      color: #26364d;
+      font-size: 13px;
+      font-weight: 700;
+      line-height: 1.45;
+    }
+
+    .confirm-line input {
+      width: 18px;
+      height: 18px;
+      margin: 1px 0 0;
+      padding: 0;
+    }
+
     .row {
       display: flex;
       gap: 10px;
@@ -393,6 +423,10 @@ function renderWithdrawPage({ token, session, banks, initialOrder = null }) {
       </div>
 
       <p class="notice">Kiểm tra kỹ ngân hàng, số tài khoản và tên chủ tài khoản. Thông tin sai có thể khiến lệnh bị từ chối hoặc xử lý chậm.</p>
+      <label class="confirm-line">
+        <input type="checkbox" name="confirmInfo" value="yes" required>
+        <span>Tôi xác nhận thông tin ngân hàng, số tài khoản, tên chủ tài khoản và số tiền đã chính xác.</span>
+      </label>
       <div class="row">
         <button id="submitBtn" class="primary" type="submit">Tạo lệnh rút</button>
       </div>
@@ -415,6 +449,7 @@ function renderWithdrawPage({ token, session, banks, initialOrder = null }) {
 
   <script>
     const token = ${JSON.stringify(token)};
+    const withdrawNonce = ${JSON.stringify(session.submitNonce || '')};
     const initialOrder = ${JSON.stringify(initialOrder)};
     const form = document.getElementById('withdrawForm');
     const formError = document.getElementById('formError');
@@ -512,7 +547,10 @@ function renderWithdrawPage({ token, session, banks, initialOrder = null }) {
     async function callApi(path, payload) {
       const res = await fetch(path + '?token=' + encodeURIComponent(token), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Withdraw-Nonce': withdrawNonce
+        },
         body: JSON.stringify(payload || {})
       });
       const data = await res.json();
@@ -616,6 +654,7 @@ function validateSubmitPayload(payload) {
   const bankAccount = String(payload.bankAccount || '').trim();
   const bankAccountName = String(payload.bankAccountName || '').trim();
   const message = String(payload.message || '').trim();
+  const confirmInfo = String(payload.confirmInfo || '').trim();
 
   if (!Number.isInteger(amount) || amount <= 0) {
     throw new Error('Số tiền không hợp lệ.');
@@ -623,6 +662,7 @@ function validateSubmitPayload(payload) {
   if (!bankCode) throw new Error('Vui lòng chọn ngân hàng.');
   if (!bankAccount) throw new Error('Vui lòng nhập số tài khoản.');
   if (!bankAccountName) throw new Error('Vui lòng nhập tên chủ tài khoản.');
+  if (confirmInfo !== 'yes') throw new Error('Vui lòng xác nhận thông tin rút tiền đã chính xác.');
 
   return { amount, bankCode, bankAccount, bankAccountName, message };
 }
@@ -642,13 +682,20 @@ async function handleWithdrawWebRequest(req, res, url) {
   }
 
   try {
+    if (req.method === 'POST' && !verifyWithdrawSessionNonce(session, req.headers['x-withdraw-nonce'])) {
+      sendJson(res, 403, { ok: false, message: 'Phiên form không hợp lệ. Vui lòng mở lại link từ bot.' });
+      return true;
+    }
+
     if (req.method === 'GET' && url.pathname === '/withdraw') {
       await touchWithdrawSession(token);
+      const submitNonce = await refreshWithdrawSessionNonce(token);
+      const renderSession = { ...session, submitNonce };
       const existingOrder = await getWithdrawOrderBySessionToken(token);
       if (existingOrder) {
         sendHtml(res, 200, renderWithdrawPage({
           token,
-          session,
+          session: renderSession,
           banks: [],
           initialOrder: serializeOrder(existingOrder)
         }));
@@ -661,7 +708,7 @@ async function handleWithdrawWebRequest(req, res, url) {
       }
       sendHtml(res, 200, renderWithdrawPage({
         token,
-        session,
+        session: renderSession,
         banks: normalizeBanks(bankResponse)
       }));
       return true;

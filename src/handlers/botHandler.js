@@ -9,7 +9,10 @@ const {
   handleRechargeCallbackQuery
 } = require('./rechargeHandler');
 const { handleThongKeCommand } = require('./statsHandler');
-const { handleRutTienCommand } = require('./withdrawHandler');
+const {
+  handleRutTienCommand,
+  handleDanhSachRutCommand
+} = require('./withdrawHandler');
 
 function registerBot(bot) {
   bot.onText(/^\/start$/, async (msg) => {
@@ -30,6 +33,10 @@ function registerBot(bot) {
 
   bot.onText(/^\/ruttien(?:\s+(.+))?$/, async (msg, match) => {
     await handleRutTienCommand(bot, msg, match);
+  });
+
+  bot.onText(/^\/danhsachrut(?:\s+(.+))?$/, async (msg, match) => {
+    await handleDanhSachRutCommand(bot, msg, match);
   });
 
   bot.onText(/^\/thongke(?:\s+(.+))?$/, async (msg, match) => {

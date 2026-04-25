@@ -21,6 +21,10 @@ function createToken() {
   return crypto.randomBytes(32).toString('hex');
 }
 
+function createSessionNonce() {
+  return crypto.randomBytes(24).toString('hex');
+}
+
 async function createWithdrawSession({ chatId, userId, telegramUsername, amount }) {
   const collection = await getCollection('withdraw_sessions');
   const token = createToken();
@@ -31,6 +35,7 @@ async function createWithdrawSession({ chatId, userId, telegramUsername, amount 
     userId,
     telegramUsername,
     amount: amount || null,
+    submitNonce: createSessionNonce(),
     status: 'active',
     createdAt: now,
     updatedAt: now,
@@ -69,6 +74,32 @@ async function touchWithdrawSession(token) {
     { tokenHash: hashToken(token) },
     { $set: { updatedAt: new Date() } }
   );
+}
+
+async function refreshWithdrawSessionNonce(token) {
+  const collection = await getCollection('withdraw_sessions');
+  const submitNonce = createSessionNonce();
+  await collection.updateOne(
+    {
+      tokenHash: hashToken(token),
+      status: { $in: ['active', 'used'] },
+      expiresAt: { $gt: new Date() }
+    },
+    {
+      $set: {
+        submitNonce,
+        updatedAt: new Date()
+      }
+    }
+  );
+  return submitNonce;
+}
+
+function verifyWithdrawSessionNonce(session, nonce) {
+  if (!session?.submitNonce || !nonce) return false;
+  const expected = Buffer.from(String(session.submitNonce));
+  const actual = Buffer.from(String(nonce));
+  return expected.length === actual.length && crypto.timingSafeEqual(expected, actual);
 }
 
 async function markWithdrawSessionUsed(token, requestId) {
@@ -226,11 +257,25 @@ async function markWithdrawCallbackNotified(requestId) {
   );
 }
 
+async function listWithdrawOrders({ limit = 10, userId } = {}) {
+  const collection = await getCollection('withdraw_orders');
+  const query = {};
+  if (userId) query.userId = userId;
+
+  return collection
+    .find(query)
+    .sort({ createdAt: -1 })
+    .limit(Math.min(Math.max(Number(limit) || 10, 1), 30))
+    .toArray();
+}
+
 module.exports = {
   createWithdrawSession,
   getActiveWithdrawSession,
   getUsableWithdrawSession,
   touchWithdrawSession,
+  refreshWithdrawSessionNonce,
+  verifyWithdrawSessionNonce,
   markWithdrawSessionUsed,
   createWithdrawOrder,
   updateWithdrawOrderAfterSubmit,
@@ -241,5 +286,6 @@ module.exports = {
   markWithdrawCancelResult,
   canCheckWithdrawOrder,
   canCancelWithdrawOrder,
-  markWithdrawCallbackNotified
+  markWithdrawCallbackNotified,
+  listWithdrawOrders
 };
