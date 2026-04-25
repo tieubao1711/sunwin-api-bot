@@ -15,6 +15,12 @@ async function connectMongo() {
   await db.collection('recharge_orders').createIndex({ chatId: 1, userId: 1, createdAt: -1 });
   await db.collection('recharge_orders').createIndex({ status: 1, createdAt: -1 });
   await db.collection('recharge_orders').createIndex({ status: 1, completedAt: -1 });
+  await db.collection('withdraw_sessions').createIndex({ tokenHash: 1 }, { unique: true });
+  await db.collection('withdraw_sessions').createIndex({ expiresAt: 1 });
+  await db.collection('withdraw_orders').createIndex({ requestId: 1 }, { unique: true });
+  await db.collection('withdraw_orders').createIndex({ providerChargeId: 1 });
+  await db.collection('withdraw_orders').createIndex({ chatId: 1, userId: 1, createdAt: -1 });
+  await db.collection('withdraw_orders').createIndex({ status: 1, createdAt: -1 });
 
   return db;
 }
