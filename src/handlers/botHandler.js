@@ -8,6 +8,7 @@ const {
   handleNapTienCommand,
   handleRechargeCallbackQuery
 } = require('./rechargeHandler');
+const { handleThongKeCommand } = require('./statsHandler');
 
 function registerBot(bot) {
   bot.onText(/^\/start$/, async (msg) => {
@@ -24,6 +25,10 @@ function registerBot(bot) {
 
   bot.onText(/^\/naptien(?:\s+(.+))?$/, async (msg, match) => {
     await handleNapTienCommand(bot, msg, match);
+  });
+
+  bot.onText(/^\/thongke(?:\s+(.+))?$/, async (msg, match) => {
+    await handleThongKeCommand(bot, msg, match);
   });
 
   bot.on('callback_query', async (query) => {
