@@ -24,16 +24,12 @@ const pendingActions = new Map();
 function getAccountInlineKeyboard() {
   return {
     inline_keyboard: [
-      [
-        { text: '🎮 Lịch sử cược', callback_data: 'view_bets' }
-      ],
+      [{ text: '🎮 Lịch sử cược', callback_data: 'view_bets' }],
       [
         { text: '🏦 Lịch sử nạp', callback_data: 'view_deposit' },
         { text: '💸 Lịch sử rút', callback_data: 'view_withdraw' }
       ],
-      [
-        { text: '🔑 Đổi mật khẩu', callback_data: 'change_password' }
-      ]
+      [{ text: '🔑 Đổi mật khẩu', callback_data: 'change_password' }]
     ]
   };
 }
@@ -106,59 +102,41 @@ async function handleAccountCallback(bot, query) {
 
   try {
     if (query.data === 'view_bets') {
-      await bot.answerCallbackQuery(query.id, {
-        text: 'Đang lấy lịch sử cược...'
-      });
-
+      await bot.answerCallbackQuery(query.id, { text: 'Đang lấy lịch sử cược...' });
       const response = await fetchTransactions(session.accessToken, {
         limit: 5,
         skip: 0,
         assetName: 'gold'
       });
-
-      await bot.sendMessage(
-        chatId,
-        buildTransactionsMessage(response.data || response),
-        { parse_mode: 'HTML' }
-      );
+      await bot.sendMessage(chatId, buildTransactionsMessage(response.data || response), {
+        parse_mode: 'HTML'
+      });
       return true;
     }
 
     if (query.data === 'view_deposit') {
-      await bot.answerCallbackQuery(query.id, {
-        text: 'Đang lấy lịch sử nạp...'
-      });
-
+      await bot.answerCallbackQuery(query.id, { text: 'Đang lấy lịch sử nạp...' });
       const response = await fetchSlipHistory(session.accessToken, {
         slipType: 1,
         limit: 5,
         skip: 0
       });
-
-      await bot.sendMessage(
-        chatId,
-        buildDepositHistoryMessage(response.data || response),
-        { parse_mode: 'HTML' }
-      );
+      await bot.sendMessage(chatId, buildDepositHistoryMessage(response.data || response), {
+        parse_mode: 'HTML'
+      });
       return true;
     }
 
     if (query.data === 'view_withdraw') {
-      await bot.answerCallbackQuery(query.id, {
-        text: 'Đang lấy lịch sử rút...'
-      });
-
+      await bot.answerCallbackQuery(query.id, { text: 'Đang lấy lịch sử rút...' });
       const response = await fetchSlipHistory(session.accessToken, {
         slipType: 2,
         limit: 5,
         skip: 0
       });
-
-      await bot.sendMessage(
-        chatId,
-        buildWithdrawHistoryMessage(response.data || response),
-        { parse_mode: 'HTML' }
-      );
+      await bot.sendMessage(chatId, buildWithdrawHistoryMessage(response.data || response), {
+        parse_mode: 'HTML'
+      });
       return true;
     }
 
@@ -167,10 +145,7 @@ async function handleAccountCallback(bot, query) {
       return true;
     }
   } catch (error) {
-    await bot.answerCallbackQuery(query.id, {
-      text: 'Có lỗi xảy ra.'
-    });
-
+    await bot.answerCallbackQuery(query.id, { text: 'Có lỗi xảy ra.' });
     await bot.sendMessage(
       chatId,
       `❌ <b>Lỗi</b>\n<code>${escapeHtml(extractAxiosError(error))}</code>`,
@@ -198,9 +173,7 @@ async function promptPasswordChange(bot, query, sessionKey, chatId, userId) {
     '🔑 Hãy <b>reply vào tin nhắn này</b> với <b>mật khẩu mới</b> để đổi mật khẩu.',
     {
       parse_mode: 'HTML',
-      reply_markup: {
-        force_reply: true
-      }
+      reply_markup: { force_reply: true }
     }
   );
 
@@ -243,15 +216,23 @@ async function handleAccountTextMessage(bot, msg) {
   }
 
   try {
-    await changePassword(session.accessToken, session.password, text);
+    const response = await changePassword(session.accessToken, session.password, text);
+    const result = normalizeChangePasswordResponse(response);
 
     pendingActions.delete(sessionKey);
 
-    await bot.sendMessage(
-      chatId,
-      '✅ <b>Đổi mật khẩu thành công</b>',
-      { parse_mode: 'HTML' }
-    );
+    if (!result.success) {
+      await bot.sendMessage(
+        chatId,
+        `❌ <b>Đổi mật khẩu thất bại</b>\n<code>${escapeHtml(result.message)}</code>`,
+        { parse_mode: 'HTML' }
+      );
+      return true;
+    }
+
+    await bot.sendMessage(chatId, `✅ <b>${escapeHtml(result.message)}</b>`, {
+      parse_mode: 'HTML'
+    });
 
     session.password = text;
     sessions.set(sessionKey, session);
@@ -266,6 +247,18 @@ async function handleAccountTextMessage(bot, msg) {
   }
 
   return true;
+}
+
+function normalizeChangePasswordResponse(response) {
+  const status = response?.data?.status ?? response?.status;
+  const success = response?.success === true && (status === undefined || status === 0);
+  const message =
+    response?.data?.data?.message ||
+    response?.data?.message ||
+    response?.message ||
+    (success ? 'Đổi mật khẩu thành công' : 'Đổi mật khẩu thất bại');
+
+  return { success, message };
 }
 
 module.exports = {
