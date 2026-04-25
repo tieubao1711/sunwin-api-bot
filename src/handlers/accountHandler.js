@@ -43,13 +43,13 @@ async function handleInfoCommand(bot, msg, match) {
     return;
   }
 
-  const args = (match?.[1] || '').trim().split(/\s+/).filter(Boolean);
-  if (args.length < 2) {
+  const credentials = parseInfoCredentials(match?.[1] || '');
+  if (!credentials) {
     await sendUsage(bot, chatId);
     return;
   }
 
-  const [username, password] = args;
+  const { username, password } = credentials;
 
   await bot.sendMessage(chatId, 'Đang đăng nhập và lấy thông tin...');
 
@@ -81,6 +81,29 @@ async function handleInfoCommand(bot, msg, match) {
       parse_mode: 'HTML'
     });
   }
+}
+
+function parseInfoCredentials(input) {
+  const raw = String(input || '').trim();
+  if (!raw) return null;
+
+  if (raw.includes('|')) {
+    const [username, ...passwordParts] = raw.split('|');
+    const password = passwordParts.join('|');
+    if (!username.trim() || !password.trim()) return null;
+    return {
+      username: username.trim(),
+      password: password.trim()
+    };
+  }
+
+  const args = raw.split(/\s+/).filter(Boolean);
+  if (args.length < 2) return null;
+
+  return {
+    username: args[0],
+    password: args.slice(1).join(' ')
+  };
 }
 
 async function handleAccountCallback(bot, query) {
