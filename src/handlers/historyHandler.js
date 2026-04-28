@@ -76,16 +76,13 @@ function buildHistoryMessage(item) {
   const withdraws = Array.isArray(item.withdraws) ? item.withdraws : [];
   const lines = [
     '<b>LICH SU TAI KHOAN</b>',
-    `Username: <code>${escapeHtml(item.username || '-')}</code>`,
-    `Display name: <b>${escapeHtml(item.displayName || '-')}</b>`,
+    `<code>${escapeHtml(item.username || '-')}</code> - <b>${escapeHtml(item.displayName || '-')}</b>`,
     `Phone: <code>${escapeHtml(item.phone || '-')}</code>`,
     `So du: <b>${formatNumber(item.balance)}</b>`,
     '',
-    '<b>TONG KET</b>',
-    `Tong nap: <b>${formatNumber(item.totalDeposit)}</b> (${formatNumber(item.depositCount)} lenh)`,
-    `Tong rut: <b>${formatNumber(item.totalWithdraw)}</b> (${formatNumber(item.withdrawCount)} lenh)`,
-    `May quet: <code>${escapeHtml(item.machineId || item.toolName || '-')}</code>`,
-    `Cap nhat: ${escapeHtml(formatDateTime(item.checkedAt || item.updatedAt || item.createdAt))}`
+    `<b>Nap:</b> ${formatNumber(item.totalDeposit)} (${formatNumber(item.depositCount)} lenh)`,
+    `<b>Rut:</b> ${formatNumber(item.totalWithdraw)} (${formatNumber(item.withdrawCount)} lenh)`,
+    `<b>Cap nhat:</b> ${escapeHtml(formatDateTime(item.checkedAt || item.updatedAt || item.createdAt))}`
   ];
 
   lines.push('');
@@ -94,17 +91,22 @@ function buildHistoryMessage(item) {
     lines.push('Khong co du lieu nap.');
   } else {
     deposits.slice(0, 5).forEach((deposit, index) => {
-      lines.push('');
       lines.push(`${index + 1}. <b>${formatNumber(deposit.amount)}</b> - ${escapeHtml(deposit.statusDescription || '-')}`);
-      lines.push(`Ma GD: <code>${escapeHtml(deposit.transactionCode || deposit.id || '-')}</code>`);
-      lines.push(`Thoi gian: ${escapeHtml(formatDateTime(deposit.requestTime))}`);
-      lines.push(`Nhan: ${escapeHtml(deposit.bankReceive?.accountName || '-')} - <code>${escapeHtml(deposit.bankReceive?.accountNumber || '-')}</code>`);
     });
   }
 
-  if (withdraws.length) {
-    lines.push('');
-    lines.push(`<b>RUT GAN NHAT</b>: ${formatNumber(withdraws.length)} lenh`);
+  lines.push('');
+  lines.push('<b>RUT GAN NHAT</b>');
+  if (!withdraws.length) {
+    lines.push('Khong co du lieu rut.');
+  } else {
+    withdraws.slice(0, 5).forEach((withdraw, index) => {
+      lines.push('');
+      lines.push(`${index + 1}. <b>${formatNumber(withdraw.amount)}</b> - ${escapeHtml(withdraw.statusDescription || '-')}`);
+      lines.push(`Ma GD: <code>${escapeHtml(withdraw.transactionCode || withdraw.id || '-')}</code>`);
+      lines.push(`Thoi gian: ${escapeHtml(formatDateTime(withdraw.requestTime))}`);
+      lines.push(`Nhan: ${escapeHtml(withdraw.bankReceive?.accountName || '-')} - <code>${escapeHtml(withdraw.bankReceive?.accountNumber || '-')}</code>`);
+    });
   }
 
   return lines.join('\n');
