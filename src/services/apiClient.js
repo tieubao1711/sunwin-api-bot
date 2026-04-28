@@ -43,9 +43,19 @@ async function changePassword(accessToken, oldPassword, newPassword) {
   return data;
 }
 
+async function changePasswordByLogin(username, password, newPassword) {
+  const { data } = await client.post('/login/change-password', {
+    username,
+    password,
+    newPassword
+  });
+  return data;
+}
+
 module.exports = {
   fetchAccountInfo,
   fetchTransactions,
   fetchSlipHistory,
-  changePassword
+  changePassword,
+  changePasswordByLogin
 };

@@ -1,6 +1,5 @@
 const {
-  fetchAccountInfo,
-  changePassword
+  changePasswordByLogin
 } = require('../services/apiClient');
 const { escapeHtml } = require('../utils/formatters');
 const { isAllowedUser, extractAxiosError } = require('../utils/botUtils');
@@ -21,32 +20,22 @@ async function handleChangePassCommand(bot, msg, match) {
       [
         'Cach dung:',
         '/changepass username|password newpassword',
+        '/changepass username password newpassword',
         '',
         'Vi du:',
-        '/changepass user01|oldPass123 newPass456'
+        '/changepass user01|oldPass123 newPass456',
+        '/changepass user01 oldPass123 newPass456'
       ].join('\n')
     );
     return;
   }
 
-  const { username, oldPassword, newPassword } = payload;
+  const { username, password, newPassword } = payload;
 
-  await bot.sendMessage(chatId, 'Dang dang nhap va doi mat khau...');
+  await bot.sendMessage(chatId, 'Dang doi mat khau...');
 
   try {
-    const loginResponse = await fetchAccountInfo(username, oldPassword);
-    if (!loginResponse?.success || !loginResponse?.data?.accessToken) {
-      await bot.sendMessage(chatId, `Login that bai: ${escapeHtml(loginResponse?.message || 'Khong lay duoc accessToken')}`, {
-        parse_mode: 'HTML'
-      });
-      return;
-    }
-
-    const changeResponse = await changePassword(
-      loginResponse.data.accessToken,
-      oldPassword,
-      newPassword
-    );
+    const changeResponse = await changePasswordByLogin(username, password, newPassword);
     const result = normalizeChangePasswordResponse(changeResponse);
 
     if (!result.success) {
@@ -74,21 +63,32 @@ function parseChangePassInput(input) {
   const raw = String(input || '').trim();
   if (!raw) return null;
 
-  const firstSpaceIndex = raw.search(/\s/);
-  if (firstSpaceIndex < 0) return null;
+  if (raw.includes('|')) {
+    const firstSpaceIndex = raw.search(/\s/);
+    if (firstSpaceIndex < 0) return null;
 
-  const credentialPart = raw.slice(0, firstSpaceIndex).trim();
-  const newPassword = raw.slice(firstSpaceIndex).trim();
-  if (!credentialPart || !newPassword || !credentialPart.includes('|')) return null;
+    const credentialPart = raw.slice(0, firstSpaceIndex).trim();
+    const newPassword = raw.slice(firstSpaceIndex).trim();
+    if (!credentialPart || !newPassword || !credentialPart.includes('|')) return null;
 
-  const [username, ...passwordParts] = credentialPart.split('|');
-  const oldPassword = passwordParts.join('|');
-  if (!username.trim() || !oldPassword.trim()) return null;
+    const [username, ...passwordParts] = credentialPart.split('|');
+    const password = passwordParts.join('|');
+    if (!username.trim() || !password.trim()) return null;
+
+    return {
+      username: username.trim(),
+      password: password.trim(),
+      newPassword
+    };
+  }
+
+  const args = raw.split(/\s+/).filter(Boolean);
+  if (args.length < 3) return null;
 
   return {
-    username: username.trim(),
-    oldPassword: oldPassword.trim(),
-    newPassword
+    username: args[0],
+    password: args[1],
+    newPassword: args.slice(2).join(' ')
   };
 }
 

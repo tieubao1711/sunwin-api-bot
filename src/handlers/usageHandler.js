@@ -6,6 +6,7 @@ async function sendUsage(bot, chatId) {
       '/info username password',
       '/info username|password',
       '/changepass username|password newpassword',
+      '/changepass username password newpassword',
       '/naptien 50000',
       '/ruttien',
       '/ruttien 100000',
