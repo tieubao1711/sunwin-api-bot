@@ -40,7 +40,6 @@ async function changePassword(accessToken, oldPassword, newPassword) {
     oldPassword,
     newPassword
   });
-  console.log(data);
   return data;
 }
 
