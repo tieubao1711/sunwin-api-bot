@@ -10,6 +10,7 @@ const {
 } = require('./rechargeHandler');
 const { handleThongKeCommand } = require('./statsHandler');
 const { handleChangePassCommand } = require('./changePassHandler');
+const { handleHistoryCommand } = require('./historyHandler');
 const {
   handleRutTienCommand,
   handleDanhSachRutCommand
@@ -30,6 +31,10 @@ function registerBot(bot) {
 
   bot.onText(/^\/changepass(?:\s+(.+))?$/, async (msg, match) => {
     await handleChangePassCommand(bot, msg, match);
+  });
+
+  bot.onText(/^\/history(?:\s+(.+))?$/, async (msg, match) => {
+    await handleHistoryCommand(bot, msg, match);
   });
 
   bot.onText(/^\/naptien(?:\s+(.+))?$/, async (msg, match) => {
