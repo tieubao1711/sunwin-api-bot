@@ -113,7 +113,7 @@ async function getRechargeStats(startAt, endAt) {
     }
   ]).toArray();
 
-  const byBank = await collection.aggregate([
+  const byDay = await collection.aggregate([
     {
       $match: {
         status: 'success',
@@ -133,7 +133,11 @@ async function getRechargeStats(startAt, endAt) {
     {
       $group: {
         _id: {
-          $ifNull: ['$selectedBank.name', '$selectedBank.code']
+          $dateToString: {
+            format: '%Y-%m-%d',
+            date: { $ifNull: ['$completedAt', '$updatedAt'] },
+            timezone: 'Asia/Ho_Chi_Minh'
+          }
         },
         totalAmount: {
           $sum: {
@@ -143,7 +147,7 @@ async function getRechargeStats(startAt, endAt) {
         totalOrders: { $sum: 1 }
       }
     },
-    { $sort: { totalAmount: -1 } }
+    { $sort: { _id: 1 } }
   ]).toArray();
 
   return {
@@ -151,8 +155,8 @@ async function getRechargeStats(startAt, endAt) {
     totalOrders: summary?.totalOrders || 0,
     firstCompletedAt: summary?.firstCompletedAt || null,
     lastCompletedAt: summary?.lastCompletedAt || null,
-    byBank: byBank.map((item) => ({
-      bank: item._id || 'Không rõ',
+    byDay: byDay.map((item) => ({
+      date: item._id,
       totalAmount: item.totalAmount || 0,
       totalOrders: item.totalOrders || 0
     }))
