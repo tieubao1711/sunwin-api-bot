@@ -85,6 +85,7 @@ async function getRechargeStats(startAt, endAt) {
     {
       $match: {
         status: 'success',
+        settlementId: { $exists: false },
         $or: [
           { completedAt: { $gte: startAt, $lt: endAt } },
           {
@@ -117,6 +118,7 @@ async function getRechargeStats(startAt, endAt) {
     {
       $match: {
         status: 'success',
+        settlementId: { $exists: false },
         $or: [
           { completedAt: { $gte: startAt, $lt: endAt } },
           {
@@ -163,11 +165,50 @@ async function getRechargeStats(startAt, endAt) {
   };
 }
 
+async function getUnsettledSuccessfulRechargeOrders() {
+  const collection = await getCollection('recharge_orders');
+  return collection
+    .find({
+      status: 'success',
+      settlementId: { $exists: false }
+    })
+    .sort({ completedAt: 1, updatedAt: 1, createdAt: 1 })
+    .toArray();
+}
+
+async function createRevenueSettlement(settlement) {
+  const collection = await getCollection('revenue_settlements');
+  await collection.insertOne(settlement);
+  return settlement;
+}
+
+async function markRechargeOrdersSettled(orderIds, settlementId, closedAt) {
+  if (!orderIds.length) return { modifiedCount: 0 };
+
+  const collection = await getCollection('recharge_orders');
+  return collection.updateMany(
+    {
+      _id: { $in: orderIds },
+      status: 'success',
+      settlementId: { $exists: false }
+    },
+    {
+      $set: {
+        settlementId,
+        settledAt: closedAt
+      }
+    }
+  );
+}
+
 module.exports = {
   createRechargeOrder,
   getRechargeOrder,
   markBankSelected,
   markRechargeCallback,
   markCallbackNotified,
-  getRechargeStats
+  getRechargeStats,
+  getUnsettledSuccessfulRechargeOrders,
+  createRevenueSettlement,
+  markRechargeOrdersSettled
 };

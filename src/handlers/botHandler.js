@@ -11,6 +11,7 @@ const {
 const { handleThongKeCommand } = require('./statsHandler');
 const { handleChangePassCommand } = require('./changePassHandler');
 const { handleHistoryCommand } = require('./historyHandler');
+const { handleChotDoanhThuCommand } = require('./settlementHandler');
 const {
   handleRutTienCommand,
   handleDanhSachRutCommand
@@ -51,6 +52,10 @@ function registerBot(bot) {
 
   bot.onText(/^\/thongke(?:\s+(.+))?$/, async (msg, match) => {
     await handleThongKeCommand(bot, msg, match);
+  });
+
+  bot.onText(/^\/chotdoanhthu$/, async (msg) => {
+    await handleChotDoanhThuCommand(bot, msg);
   });
 
   bot.on('callback_query', async (query) => {

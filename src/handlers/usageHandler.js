@@ -16,12 +16,14 @@ async function sendUsage(bot, chatId) {
       '/thongke',
       '/thongke week',
       '/thongke month',
+      '/chotdoanhthu',
       '',
       '/info dùng để xem thông tin tài khoản và thao tác lịch sử/đổi mật khẩu.',
       '/naptien dùng độc lập để tạo lệnh nạp tiền.',
       '/ruttien mở form rút tiền bảo mật bằng link tạm.',
       '/danhsachrut xem 10 lệnh rút gần nhất.',
-      '/thongke dùng để xem doanh thu nạp tiền thành công.'
+      '/thongke dùng để xem doanh thu nạp tiền thành công.',
+      '/chotdoanhthu chot cac lenh nap thanh cong chua doi soat va xuat file XLSX.'
     ].join('\n')
   );
 }
