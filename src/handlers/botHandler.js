@@ -11,7 +11,10 @@ const {
 const { handleThongKeCommand } = require('./statsHandler');
 const { handleChangePassCommand } = require('./changePassHandler');
 const { handleHistoryCommand } = require('./historyHandler');
-const { handleChotDoanhThuCommand } = require('./settlementHandler');
+const {
+  handleChotDoanhThuCommand,
+  handleLichSuChotCommand
+} = require('./settlementHandler');
 const {
   handleRutTienCommand,
   handleDanhSachRutCommand
@@ -56,6 +59,10 @@ function registerBot(bot) {
 
   bot.onText(/^\/chotdoanhthu$/, async (msg) => {
     await handleChotDoanhThuCommand(bot, msg);
+  });
+
+  bot.onText(/^\/lichsuchot$/, async (msg) => {
+    await handleLichSuChotCommand(bot, msg);
   });
 
   bot.on('callback_query', async (query) => {

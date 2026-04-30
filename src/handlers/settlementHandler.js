@@ -6,7 +6,8 @@ const XLSX = require('xlsx');
 const {
   getUnsettledSuccessfulRechargeOrders,
   createRevenueSettlement,
-  markRechargeOrdersSettled
+  markRechargeOrdersSettled,
+  getRecentRevenueSettlements
 } = require('../services/rechargeStore');
 const { escapeHtml, formatNumber } = require('../utils/formatters');
 const { isAllowedUser, extractAxiosError } = require('../utils/botUtils');
@@ -71,6 +72,27 @@ async function handleChotDoanhThuCommand(bot, msg) {
   }
 }
 
+async function handleLichSuChotCommand(bot, msg) {
+  const chatId = msg.chat.id;
+  const userId = msg.from.id;
+
+  if (!isAllowedUser(userId)) {
+    await bot.sendMessage(chatId, 'Ban khong co quyen dung bot nay.');
+    return;
+  }
+
+  try {
+    const settlements = await getRecentRevenueSettlements(10);
+    await bot.sendMessage(chatId, buildSettlementHistoryMessage(settlements), {
+      parse_mode: 'HTML'
+    });
+  } catch (error) {
+    await bot.sendMessage(chatId, `Loi lay lich su chot: ${escapeHtml(extractAxiosError(error))}`, {
+      parse_mode: 'HTML'
+    });
+  }
+}
+
 function createSettlementId() {
   return `settle_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
 }
@@ -122,6 +144,24 @@ function writeSettlementXlsx(settlement, orders) {
   return filePath;
 }
 
+function buildSettlementHistoryMessage(settlements) {
+  if (!settlements.length) {
+    return 'Chua co lan chot doanh thu nao.';
+  }
+
+  const lines = ['<b>LICH SU CHOT DOANH THU</b>'];
+  settlements.forEach((settlement, index) => {
+    lines.push('');
+    lines.push(`${index + 1}. <code>${escapeHtml(settlement.settlementId || '-')}</code>`);
+    lines.push(`Thoi gian: ${escapeHtml(formatDateTime(settlement.closedAt))}`);
+    lines.push(`Doanh thu: <b>${formatNumber(settlement.totalAmount)}</b>`);
+    lines.push(`Lenh nap: <b>${formatNumber(settlement.totalOrders)}</b>`);
+    lines.push(`Nguoi chot: ${escapeHtml(settlement.closedByUsername || settlement.closedByUserId || '-')}`);
+  });
+
+  return lines.join('\n');
+}
+
 function getOrderAmount(order) {
   const amount = Number(order.chargeAmount ?? order.amount ?? 0);
   return Number.isFinite(amount) ? amount : 0;
@@ -148,4 +188,7 @@ function formatDateTime(value) {
   }).format(date);
 }
 
-module.exports = { handleChotDoanhThuCommand };
+module.exports = {
+  handleChotDoanhThuCommand,
+  handleLichSuChotCommand
+};

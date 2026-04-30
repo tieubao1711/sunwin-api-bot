@@ -201,6 +201,15 @@ async function markRechargeOrdersSettled(orderIds, settlementId, closedAt) {
   );
 }
 
+async function getRecentRevenueSettlements(limit = 10) {
+  const collection = await getCollection('revenue_settlements');
+  return collection
+    .find({})
+    .sort({ closedAt: -1 })
+    .limit(limit)
+    .toArray();
+}
+
 module.exports = {
   createRechargeOrder,
   getRechargeOrder,
@@ -210,5 +219,6 @@ module.exports = {
   getRechargeStats,
   getUnsettledSuccessfulRechargeOrders,
   createRevenueSettlement,
-  markRechargeOrdersSettled
+  markRechargeOrdersSettled,
+  getRecentRevenueSettlements
 };
